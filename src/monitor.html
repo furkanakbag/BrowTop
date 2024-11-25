@@ -26,7 +26,7 @@
     <div class="error" id="error"></div>
     <div class="stats" id="stats"></div>
     <script>
-        const server_url = 'wss://' + location.host + '/ws';
+        const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
         const statsDiv = document.getElementById('stats');
         const errorDiv = document.getElementById('error');
         const ws = new WebSocket(server_url);
