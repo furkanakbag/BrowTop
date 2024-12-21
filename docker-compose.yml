@@ -3,6 +3,8 @@ services:
   browtop:
     build: .
     ports:
-      - "8765:8765"
+      - "1022:8765"  
     volumes:
-      - ./cert:/app/cert
+      - ./cert:/app/cert  
+    environment:
+      - ENVIRONMENT=production  
