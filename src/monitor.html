@@ -19,7 +19,7 @@
             right: 20px;
             font-size: 16px;
             color: #ffffff;
-            display: none; /* Hide the current user initially */
+            display: none;
         }
         .container {
             max-width: 400px;
@@ -39,16 +39,11 @@
             margin-bottom: 20px;
         }
         .input-group input {
-            width: calc(100% - 50px); /* Adjust width to leave space for the "Show" button */
+            width: calc(100% - 50px);
             padding: 10px;
             border: none;
             border-radius: 5px;
             font-size: 16px;
-            display: inline-block;
-        }
-        .input-group input:focus {
-            outline: none;
-            border: 2px solid #61dafb;
         }
         .show-password-btn {
             position: absolute;
@@ -61,9 +56,6 @@
             font-size: 14px;
             cursor: pointer;
         }
-        .show-password-btn:focus {
-            outline: none;
-        }
         .login-btn {
             width: 100%;
             padding: 10px;
@@ -75,16 +67,8 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        .login-btn:hover {
-            background-color: #4baedb;
-        }
-        .error-message {
-            color: #ff4d4d;
-            margin-top: 10px;
-            font-size: 14px;
-        }
         #monitor-section {
-            display: none; /* Ensure monitor section is hidden initially */
+            display: none;
         }
     </style>
 </head>
@@ -147,56 +131,23 @@
 
         function connectWebSocket() {
             websocket = new WebSocket(wsUrl);
-            websocket.onopen = function () {
-                console.log("WebSocket connection established.");
-            };
-            websocket.onerror = function (error) {
-                console.error("WebSocket error:", error);
-                alert("Unable to establish WebSocket connection.");
-            };
-            websocket.onmessage = function (event) {
+            websocket.onopen = () => console.log("WebSocket connection established.");
+            websocket.onmessage = event => {
                 const stats = JSON.parse(event.data);
                 displayStats(stats);
             };
         }
 
         function displayStats(stats) {
-            // Update the current user
             const currentUserDiv = document.getElementById("current-user");
             currentUserDiv.innerHTML = `Logged in as: <strong>${stats.current_user}</strong>`;
 
-            // Update system stats
             const statsDiv = document.getElementById("stats");
             statsDiv.innerHTML = `
                 <h3>CPU: ${stats.cpu}%</h3>
-                <h3>Memory Usage: ${stats.memory.used}/${stats.memory.total} (${stats.memory.percent}%)</h3>
-                <h3>Disk Usage: ${stats.disk.used}/${stats.disk.total} (${stats.disk.percent}%)</h3>
-                <h3>Load: ${stats.load.join(', ')}</h3>
+                <h3>Memory: ${stats.memory.used}/${stats.memory.total} (${stats.memory.percent}%)</h3>
+                <h3>Disk: ${stats.disk.used}/${stats.disk.total} (${stats.disk.percent}%)</h3>
                 <h3>Uptime: ${new Date(stats.uptime * 1000).toLocaleString()}</h3>
-                <h3>Logged-In Users: ${stats.logged_in_users.join(', ')}</h3>
-                <h3>Processes:</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>PID</th>
-                            <th>Name</th>
-                            <th>CPU %</th>
-                            <th>Memory %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${stats.processes.map(proc => `
-                            <tr>
-                                <td>${proc.pid}</td>
-                                <td>${proc.name}</td>
-                                <td>${proc.cpu_percent}</td>
-                                <td>${proc.memory_percent}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-                <h3>System Logs:</h3>
-                <pre>${stats.log.join('\n')}</pre>
             `;
         }
     </script>
