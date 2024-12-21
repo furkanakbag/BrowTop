@@ -1,83 +1,120 @@
 import asyncio
 import json
-import os
-from aiohttp import web
+import pathlib
+import subprocess
+import ssl
+import base64
 import psutil
-import logging
+from aiohttp import web
 
-# Logging setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Basic Authentication Middleware
+async def auth_middleware(app, handler):
+    async def middleware_handler(request):
+        if request.path in ["/monitor", "/ws"]:
+            auth_header = request.headers.get("Authorization")
+            if auth_header is None or not validate_auth(auth_header):
+                headers = {"WWW-Authenticate": 'Basic realm="Server Monitor"'}
+                return web.Response(text="Unauthorized", status=401, headers=headers)
+        return await handler(request)
+    return middleware_handler
 
-# Password for authentication
-PASSWORD = "secure_password"
+def validate_auth(auth_header):
+    """Validate Basic Auth credentials."""
+    auth_type, encoded_credentials = auth_header.split(" ", 1)
+    if auth_type.lower() != "basic":
+        return False
+    decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
+    username, password = decoded_credentials.split(":", 1)
+    return username == "admin" and password == "password"
 
-# WebSocket clients
-connected_clients = []
+async def monitor(request):
+    """Serve the HTML monitor page."""
+    path = pathlib.Path(__file__).parents[0].joinpath("monitor.html")
+    return web.FileResponse(path)
 
-# Routes and WebSocket handlers
-async def index(request):
-    return web.FileResponse('./src/monitor.html')
+async def get_system_stats():
+    """Collect system statistics."""
+    processes = [{
+        "pid": p.pid,
+        "name": p.name(),
+        "cpu": p.cpu_percent(interval=0.1),
+        "memory": p.memory_info().rss / (1024 * 1024),  # Convert to MB
+        "status": p.status()
+    } for p in psutil.process_iter(attrs=['pid', 'name', 'cpu_percent', 'memory_info', 'status'])]
 
-async def authenticate(request):
-    data = await request.json()
-    if data.get("password") == PASSWORD:
-        return web.json_response({"status": "success"})
-    return web.json_response({"status": "failure"}, status=401)
-
-async def websocket_handler(request):
-    ws = web.WebSocketResponse()
-    await ws.prepare(request)
-    connected_clients.append(ws)
-    logger.info("New WebSocket client connected")
-
-    try:
-        while True:
-            stats = get_system_stats()
-            await ws.send_json(stats)
-            await asyncio.sleep(2)  # Update interval
-    except asyncio.CancelledError:
-        logger.info("WebSocket connection closed")
-    finally:
-        connected_clients.remove(ws)
-    return ws
-
-# System stats functions
-def get_system_stats():
-    process_info = get_process_list()
-    users = [user.name for user in psutil.users()]
-    uptime = psutil.boot_time()
-
-    return {
-        "cpu": psutil.cpu_percent(interval=None),
-        "memory": psutil.virtual_memory()._asdict(),
-        "disk": psutil.disk_usage('/')._asdict(),
-        "load": os.getloadavg(),
-        "processes": process_info,
-        "logged_in_users": users,
-        "uptime": uptime,
-        "log": get_system_logs(),
+    # Process summary
+    process_states = [p["status"] for p in processes]
+    summary = {
+        "running": process_states.count(psutil.STATUS_RUNNING),
+        "sleeping": process_states.count(psutil.STATUS_SLEEPING),
+        "stopped": process_states.count(psutil.STATUS_STOPPED),
+        "zombie": process_states.count(psutil.STATUS_ZOMBIE),
+        "total": len(processes),
     }
 
-def get_process_list():
-    processes = []
-    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-        processes.append(proc.info)
-    return sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)
-
-def get_system_logs():
+    # Last 50 lines of system log
     try:
         with open('/var/log/syslog', 'r') as log_file:
-            lines = log_file.readlines()[-50:]
-        return lines
+            logs = log_file.readlines()[-50:]
     except FileNotFoundError:
-        return ["Log file not found"]
+        logs = ["Log file not found."]
 
-# Main app setup
-app = web.Application()
-app.router.add_get('/', index)
-app.router.add_post('/authenticate', authenticate)
-app.router.add_get('/ws', websocket_handler)
+    # Last 10 logged users
+    try:
+        last_output = subprocess.check_output(["last", "-n", "10"]).decode("utf-8").splitlines()
+        logged_users = [line.split()[0] for line in last_output if line and not line.startswith("wtmp")]
+    except Exception as e:
+        logged_users = [f"Error fetching logged users: {str(e)}"]
 
-if __name__ == '__main__':
-    web.run_app(app, host='0.0.0.0', port=8765)
+    stats = {
+        "cpu": psutil.cpu_percent(interval=1),
+        "memory": psutil.virtual_memory()._asdict(),
+        "disk": psutil.disk_usage("/")._asdict(),
+        "load_avg": psutil.getloadavg(),
+        "processes": processes,
+        "process_summary": summary,
+        "uptime": int(psutil.boot_time()),
+        "users": [user.name for user in psutil.users()],
+        "system_logs": logs,
+        "logged_users": logged_users,
+    }
+    return stats
+
+async def send_stats(request):
+    """Send system stats to WebSocket client."""
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+
+    async for msg in ws:
+        if msg.type == web.WSMsgType.text and msg.data == "stats":
+            data = await get_system_stats()
+            response = ["stats", data]
+            await ws.send_str(json.dumps(response))
+        elif msg.type == web.WSMsgType.close:
+            break
+
+    return ws
+
+def create_ssl_context():
+    """Create SSL context for secure WebSocket connection."""
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    cert_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.crt")
+    key_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.key")
+    ssl_context.load_cert_chain(cert_file, key_file)
+    return ssl_context
+
+def run():
+    """Start WebSocket server."""
+    ssl_context = create_ssl_context()
+    app = web.Application(middlewares=[auth_middleware])
+    app.add_routes(
+        [
+            web.get("/ws", send_stats),
+            web.get("/monitor", monitor),
+        ]
+    )
+    web.run_app(app, port=8765, ssl_context=ssl_context)
+
+if __name__ == "__main__":
+    print("Server started at wss://localhost:8765")
+    run()
