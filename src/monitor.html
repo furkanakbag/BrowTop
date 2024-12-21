@@ -23,6 +23,9 @@
         .stat {
             margin: 1rem 0;
         }
+        .error {
+            color: red;
+        }
     </style>
 </head>
 <body>
@@ -35,26 +38,32 @@
         <div class="stat" id="disk">Disk Usage: Loading...</div>
         <div class="stat" id="uptime">System Uptime: Loading...</div>
         <div class="stat" id="processes">Processes: Loading...</div>
+        <div id="error" class="error"></div>
     </main>
     <script>
         async function fetchStats() {
             try {
                 const response = await fetch('/stats', {
                     headers: {
-                        'Authorization': 'your_secure_password'
+                        'Authorization': 'Bearer Furkanarda2752'
                     }
                 });
                 if (!response.ok) {
-                    document.body.innerHTML = '<h1>Unauthorized</h1>';
+                    document.getElementById('error').innerText = `Error: ${response.statusText}`;
                     return;
                 }
                 const stats = await response.json();
+                if (stats.error) {
+                    document.getElementById('error').innerText = `Error: ${stats.error}`;
+                    return;
+                }
                 document.getElementById('cpu').innerText = `CPU Usage: ${stats.cpu_percent}%`;
                 document.getElementById('memory').innerText = `Memory Usage: ${stats.memory.percent}%`;
                 document.getElementById('disk').innerText = `Disk Usage: ${stats.disk_usage.percent}%`;
                 document.getElementById('uptime').innerText = `System Uptime: ${stats.uptime} seconds`;
                 document.getElementById('processes').innerText = `Processes: ${stats.process_summary.total}`;
             } catch (error) {
+                document.getElementById('error').innerText = `Error fetching stats: ${error.message}`;
                 console.error('Error fetching stats:', error);
             }
         }
