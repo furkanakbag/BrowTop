@@ -3,73 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Monitoring Application</title>
+    <title>System Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
         }
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 1rem 0;
-            text-align: center;
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        main {
-            padding: 1rem;
+        #login-section, #monitor-section {
+            display: none;
         }
-        .stat {
-            margin: 1rem 0;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
         }
-        .error {
-            color: red;
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>System Monitoring Application</h1>
-    </header>
-    <main>
-        <div class="stat" id="cpu">CPU Usage: Loading...</div>
-        <div class="stat" id="memory">Memory Usage: Loading...</div>
-        <div class="stat" id="disk">Disk Usage: Loading...</div>
-        <div class="stat" id="uptime">System Uptime: Loading...</div>
-        <div class="stat" id="processes">Processes: Loading...</div>
-        <div id="error" class="error"></div>
-    </main>
+    <div class="container">
+        <div id="login-section">
+            <h2>Login</h2>
+            <input type="password" id="password" placeholder="Enter Password">
+            <button onclick="authenticate()">Login</button>
+            <p id="error-message" style="color: red;"></p>
+        </div>
+
+        <div id="monitor-section">
+            <h1>System Monitor</h1>
+            <div id="stats"></div>
+        </div>
+    </div>
+
     <script>
-        async function fetchStats() {
-            try {
-                const response = await fetch('/stats', {
-                    headers: {
-                        'Authorization': 'Bearer Furkanarda2752'
-                    }
-                });
-                if (!response.ok) {
-                    document.getElementById('error').innerText = `Error: ${response.statusText}`;
-                    return;
+        const wsUrl = `ws://${window.location.host}/ws`;
+        let websocket;
+
+        function authenticate() {
+            const password = document.getElementById("password").value;
+            fetch('/authenticate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById("login-section").style.display = "none";
+                    document.getElementById("monitor-section").style.display = "block";
+                    connectWebSocket();
+                } else {
+                    document.getElementById("error-message").innerText = "Invalid password!";
                 }
-                const stats = await response.json();
-                if (stats.error) {
-                    document.getElementById('error').innerText = `Error: ${stats.error}`;
-                    return;
-                }
-                document.getElementById('cpu').innerText = `CPU Usage: ${stats.cpu_percent}%`;
-                document.getElementById('memory').innerText = `Memory Usage: ${stats.memory.percent}%`;
-                document.getElementById('disk').innerText = `Disk Usage: ${stats.disk_usage.percent}%`;
-                document.getElementById('uptime').innerText = `System Uptime: ${stats.uptime} seconds`;
-                document.getElementById('processes').innerText = `Processes: ${stats.process_summary.total}`;
-            } catch (error) {
-                document.getElementById('error').innerText = `Error fetching stats: ${error.message}`;
-                console.error('Error fetching stats:', error);
-            }
+            });
         }
 
-        setInterval(fetchStats, 5000);
-        fetchStats();
+        function connectWebSocket() {
+            websocket = new WebSocket(wsUrl);
+            websocket.onmessage = function(event) {
+                const stats = JSON.parse(event.data);
+                displayStats(stats);
+            };
+        }
+
+        function displayStats(stats) {
+            const statsDiv = document.getElementById("stats");
+            statsDiv.innerHTML = `
+                <h3>CPU: ${stats.cpu}%</h3>
+                <h3>Memory Usage: ${stats.memory.used}/${stats.memory.total} (${stats.memory.percent}%)</h3>
+                <h3>Disk Usage: ${stats.disk.used}/${stats.disk.total} (${stats.disk.percent}%)</h3>
+                <h3>Load: ${stats.load.join(', ')}</h3>
+                <h3>Uptime: ${new Date(stats.uptime * 1000).toLocaleString()}</h3>
+                <h3>Logged-In Users: ${stats.logged_in_users.join(', ')}</h3>
+                <h3>Processes:</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Name</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stats.processes.map(proc => `
+                            <tr>
+                                <td>${proc.pid}</td>
+                                <td>${proc.name}</td>
+                                <td>${proc.cpu_percent}</td>
+                                <td>${proc.memory_percent}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <h3>System Logs:</h3>
+                <pre>${stats.log.join('\n')}</pre>
+            `;
+        }
     </script>
 </body>
 </html>

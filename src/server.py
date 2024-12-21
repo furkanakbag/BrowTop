@@ -1,75 +1,83 @@
 import asyncio
 import json
 import os
-import psutil
 from aiohttp import web
+import psutil
+import logging
+
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Password for authentication
-PASSWORD = "Furkanarda2752"
+PASSWORD = "secure_password"
 
-async def handle_stats(request):
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or auth_header != f"Bearer {PASSWORD}":
-        return web.Response(status=401, text="Unauthorized")
+# WebSocket clients
+connected_clients = []
 
-    try:
-        stats = {
-            "cpu_percent": psutil.cpu_percent(interval=1),
-            "memory": psutil.virtual_memory()._asdict(),
-            "disk_usage": psutil.disk_usage('/')._asdict(),
-            "load_avg": os.getloadavg(),
-            "uptime": int(psutil.boot_time()),
-            "logged_in_users": [user._asdict() for user in psutil.users()],
-            "processes": [
-                {
-                    "pid": proc.pid,
-                    "name": proc.name(),
-                    "cpu_percent": proc.cpu_percent(interval=0.1),
-                    "memory_percent": proc.memory_percent(),
-                    "status": proc.status(),
-                }
-                for proc in psutil.process_iter(attrs=["pid", "name", "cpu_percent", "memory_percent", "status"])
-                if proc.info.get("name")
-            ],
-        }
-        stats["process_summary"] = {
-            "total": len(stats["processes"]),
-            "by_state": {
-                state: sum(1 for proc in stats["processes"] if proc["status"] == state)
-                for state in set(proc["status"] for proc in stats["processes"])
-            },
-        }
-        stats["system_logs"] = get_system_logs(50)
-        stats["last_logged_users"] = get_last_logged_users(10)
-        return web.json_response(stats)
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
-
-def get_system_logs(lines):
-    try:
-        with open('/var/log/syslog', 'r') as f:
-            return f.readlines()[-lines:]
-    except FileNotFoundError:
-        return []
-
-def get_last_logged_users(count):
-    try:
-        return "Last logged users data parsing not implemented."
-    except FileNotFoundError:
-        return []
-
-async def handle_index(request):
+# Routes and WebSocket handlers
+async def index(request):
     return web.FileResponse('./src/monitor.html')
 
-async def handle_favicon(request):
-    return web.Response(status=204)  # Empty response for favicon
+async def authenticate(request):
+    data = await request.json()
+    if data.get("password") == PASSWORD:
+        return web.json_response({"status": "success"})
+    return web.json_response({"status": "failure"}, status=401)
 
-async def start_server():
-    app = web.Application()
-    app.router.add_get('/stats', handle_stats)
-    app.router.add_get('/', handle_index)
-    app.router.add_get('/favicon.ico', handle_favicon)  # Added favicon endpoint
-    return app
+async def websocket_handler(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    connected_clients.append(ws)
+    logger.info("New WebSocket client connected")
 
-if __name__ == "__main__":
-    web.run_app(start_server(), host="0.0.0.0", port=8765)
+    try:
+        while True:
+            stats = get_system_stats()
+            await ws.send_json(stats)
+            await asyncio.sleep(2)  # Update interval
+    except asyncio.CancelledError:
+        logger.info("WebSocket connection closed")
+    finally:
+        connected_clients.remove(ws)
+    return ws
+
+# System stats functions
+def get_system_stats():
+    process_info = get_process_list()
+    users = [user.name for user in psutil.users()]
+    uptime = psutil.boot_time()
+
+    return {
+        "cpu": psutil.cpu_percent(interval=None),
+        "memory": psutil.virtual_memory()._asdict(),
+        "disk": psutil.disk_usage('/')._asdict(),
+        "load": os.getloadavg(),
+        "processes": process_info,
+        "logged_in_users": users,
+        "uptime": uptime,
+        "log": get_system_logs(),
+    }
+
+def get_process_list():
+    processes = []
+    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+        processes.append(proc.info)
+    return sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)
+
+def get_system_logs():
+    try:
+        with open('/var/log/syslog', 'r') as log_file:
+            lines = log_file.readlines()[-50:]
+        return lines
+    except FileNotFoundError:
+        return ["Log file not found"]
+
+# Main app setup
+app = web.Application()
+app.router.add_get('/', index)
+app.router.add_post('/authenticate', authenticate)
+app.router.add_get('/ws', websocket_handler)
+
+if __name__ == '__main__':
+    web.run_app(app, host='0.0.0.0', port=8765)
