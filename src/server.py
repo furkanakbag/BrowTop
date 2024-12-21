@@ -4,6 +4,8 @@ import os
 from aiohttp import web
 import psutil
 import logging
+import ssl
+
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -92,5 +94,7 @@ app.router.add_post('/authenticate', authenticate)  # Handle authentication
 app.router.add_get('/ws', websocket_handler)  # WebSocket for live stats
 
 if __name__ == '__main__':
-    logger.info("Starting the server...")
-    web.run_app(app, host='0.0.0.0', port=8765)
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain('/app/cert/localhost.crt', '/app/cert/localhost.key')
+    web.run_app(app, host='0.0.0.0', port=8765, ssl_context=ssl_context)
+
