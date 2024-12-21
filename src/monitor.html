@@ -1,59 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            background-color: #282c34;
+            color: #ffffff;
             margin: 0;
             padding: 0;
         }
+        #current-user {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 16px;
+            color: #ffffff;
+            display: none; /* Hide the current user initially */
+        }
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            max-width: 400px;
+            margin: 100px auto;
             padding: 20px;
+            background-color: #3b4048;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            text-align: center;
         }
-        #login-section {
-            display: block;
+        .container h2 {
+            margin-bottom: 20px;
+            color: #61dafb;
         }
-        #monitor-section {
-            display: none;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .input-group {
+            position: relative;
             margin-bottom: 20px;
         }
-        table, th, td {
-            border: 1px solid #ddd;
-        }
-        th, td {
+        .input-group input {
+            width: calc(100% - 50px); /* Adjust width to leave space for the "Show" button */
             padding: 10px;
-            text-align: left;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            display: inline-block;
+        }
+        .input-group input:focus {
+            outline: none;
+            border: 2px solid #61dafb;
+        }
+        .show-password-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #61dafb;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .show-password-btn:focus {
+            outline: none;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #61dafb;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .login-btn:hover {
+            background-color: #4baedb;
+        }
+        .error-message {
+            color: #ff4d4d;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        #monitor-section {
+            display: none; /* Ensure monitor section is hidden initially */
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="login-section">
-            <h2>Login</h2>
+    <div id="current-user"></div>
+    <div class="container" id="login-section">
+        <h2>System Monitor Login</h2>
+        <div class="input-group">
             <input type="password" id="password" placeholder="Enter Password">
-            <button onclick="authenticate()">Login</button>
-            <p id="error-message" style="color: red;"></p>
+            <button class="show-password-btn" onclick="togglePassword()">Show</button>
         </div>
+        <button class="login-btn" onclick="authenticate()">Login</button>
+        <p id="error-message" class="error-message"></p>
+    </div>
 
-        <div id="monitor-section">
-            <h1>System Monitor</h1>
-            <div id="stats">Loading...</div>
-        </div>
+    <div class="container" id="monitor-section">
+        <h1>System Monitor</h1>
+        <div id="stats">Loading...</div>
     </div>
 
     <script>
         const wsUrl = `ws://${window.location.host}/ws`;
         let websocket;
+
+        function togglePassword() {
+            const passwordField = document.getElementById("password");
+            const showPasswordButton = document.querySelector(".show-password-btn");
+
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                showPasswordButton.textContent = "Hide";
+            } else {
+                passwordField.type = "password";
+                showPasswordButton.textContent = "Show";
+            }
+        }
 
         function authenticate() {
             const password = document.getElementById("password").value;
@@ -66,9 +133,10 @@
                 if (response.ok) {
                     document.getElementById("login-section").style.display = "none";
                     document.getElementById("monitor-section").style.display = "block";
+                    document.getElementById("current-user").style.display = "block";
                     connectWebSocket();
                 } else {
-                    document.getElementById("error-message").innerText = "Invalid password!";
+                    document.getElementById("error-message").innerText = "Invalid password! Please try again.";
                 }
             })
             .catch(error => {
@@ -93,6 +161,11 @@
         }
 
         function displayStats(stats) {
+            // Update the current user
+            const currentUserDiv = document.getElementById("current-user");
+            currentUserDiv.innerHTML = `Logged in as: <strong>${stats.current_user}</strong>`;
+
+            // Update system stats
             const statsDiv = document.getElementById("stats");
             statsDiv.innerHTML = `
                 <h3>CPU: ${stats.cpu}%</h3>

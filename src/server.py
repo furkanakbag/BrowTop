@@ -1,11 +1,10 @@
 import asyncio
 import json
 import os
+import getpass
 from aiohttp import web
 import psutil
 import logging
-import ssl
-
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -41,13 +40,13 @@ async def websocket_handler(request):
     try:
         while True:
             stats = get_system_stats()
+            logger.debug(f"Sending stats: {stats}")
             await ws.send_json(stats)
             await asyncio.sleep(2)  # Update interval
-    except asyncio.CancelledError:
-        logger.info("WebSocket connection closed")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
+        logger.info("WebSocket connection closed")
         connected_clients.remove(ws)
     return ws
 
@@ -56,6 +55,7 @@ def get_system_stats():
     process_info = get_process_list()
     users = [user.name for user in psutil.users()]
     uptime = psutil.boot_time()
+    current_user = getpass.getuser()  # Fetch the current user
 
     return {
         "cpu": psutil.cpu_percent(interval=None),
@@ -65,6 +65,7 @@ def get_system_stats():
         "processes": process_info,
         "logged_in_users": users,
         "uptime": uptime,
+        "current_user": current_user,  # Add current user
         "log": get_system_logs(),
     }
 
@@ -94,7 +95,5 @@ app.router.add_post('/authenticate', authenticate)  # Handle authentication
 app.router.add_get('/ws', websocket_handler)  # WebSocket for live stats
 
 if __name__ == '__main__':
-    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_context.load_cert_chain('/app/cert/localhost.crt', '/app/cert/localhost.key')
-    web.run_app(app, host='0.0.0.0', port=8765, ssl_context=ssl_context)
-
+    logger.info("Starting the server...")
+    web.run_app(app, host='0.0.0.0', port=8765)
