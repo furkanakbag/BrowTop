@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=8765
 EXPOSE 8765
 
-CMD ["python", "monitor.py"]
+CMD ["python", "server.py"]
