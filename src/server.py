@@ -4,7 +4,7 @@ import os
 import psutil
 from aiohttp import web
 
-
+# Password for authentication
 PASSWORD = "Furkanarda2752"
 
 async def handle_stats(request):
@@ -59,12 +59,16 @@ def get_last_logged_users(count):
         return []
 
 async def handle_index(request):
-    return web.FileResponse('./static/monitor.html')
+    return web.FileResponse('./src/monitor.html')
+
+async def handle_favicon(request):
+    return web.Response(status=204)  # Empty response for favicon
 
 async def start_server():
     app = web.Application()
     app.router.add_get('/stats', handle_stats)
     app.router.add_get('/', handle_index)
+    app.router.add_get('/favicon.ico', handle_favicon)  # Added favicon endpoint
     return app
 
 if __name__ == "__main__":
