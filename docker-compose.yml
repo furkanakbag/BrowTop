@@ -1,0 +1,8 @@
+version: '3.9'
+services:
+  browtop:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./cert:/app/cert

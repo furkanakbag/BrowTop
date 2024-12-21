@@ -3,81 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Monitor</title>
+    <title>System Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
-        .stats {
+        .stats, .logs, .processes {
             margin-top: 10px;
         }
-        .stat {
+        .stat, .log, .process {
             margin: 10px 0;
         }
-    .error {
-        margin: 10px 0;
-        color: red;
-    }
+        .error {
+            margin: 10px 0;
+            color: red;
+        }
     </style>
 </head>
 <body>
-    <h1>Real-time Server Statistics</h1>
+    <h1>System Monitoring Dashboard</h1>
     <div class="error" id="error"></div>
     <div class="stats" id="stats"></div>
+    <div class="processes" id="processes"></div>
+    <div class="logs" id="logs"></div>
     <script>
         const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
         const statsDiv = document.getElementById('stats');
+        const processesDiv = document.getElementById('processes');
+        const logsDiv = document.getElementById('logs');
         const errorDiv = document.getElementById('error');
         const ws = new WebSocket(server_url);
 
-        ws.onconnect = () => {
+        ws.onopen = () => {
             statsDiv.innerHTML = `<div class="stat">Connected</div>`;
         };
 
         ws.onerror = (e) => {
-            errorDiv.innerHTML = `<div class="stat" style="color:red;">Error: ${e.message}</div>`;
+            errorDiv.innerHTML = `<div class="error">Error: ${e.message}</div>`;
         };
 
         ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            console.log('message', message);
-
-	    const messageType = message[0];
-            if (messageType === 'stats') {
-                updateStats(message[1]);
-            } else {
-                errorDiv.innerHTML = `<div class="stat" style="color:red;">Error: ${message}</div>`;
+            const data = JSON.parse(event.data);
+            if (data.stats) {
+                statsDiv.innerHTML = `
+                    <div class="stat"><strong>CPU Usage:</strong> ${data.stats.cpu}%</div>
+                    <div class="stat"><strong>Memory Usage:</strong> ${(data.stats.memory.used / data.stats.memory.total * 100).toFixed(2)}%</div>
+                    <div class="stat"><strong>Disk Usage:</strong> ${data.stats.disk.percent}%</div>
+                `;
+                processesDiv.innerHTML = `
+                    <h2>Processes</h2>
+                    ${data.stats.processes.map(proc => `<div>${proc.pid}: ${proc.name} (${proc.cpu_percent}%)</div>`).join('')}
+                `;
+                logsDiv.innerHTML = `
+                    <h2>Logs</h2>
+                    <ul>${data.logs.map(log => `<li>${log}</li>`).join('')}</ul>
+                `;
             }
         };
 
         ws.onclose = () => {
             statsDiv.innerHTML = `<div class="stat" style="color:red;">Connection closed</div>`;
         };
-
-        function getStats() {
-            ws.send('stats');
-        }
-
-        function updateStats(stats) {
-            statsDiv.innerHTML = `
-                <div class="stat"><strong>CPU Usage:</strong> ${stats.cpu}%</div>
-                <div class="stat"><strong>Memory Usage:</strong> 
-                    ${((stats.memory.used / stats.memory.total) * 100).toFixed(2)}% 
-                    (${(stats.memory.used / 1e9).toFixed(2)} GB / ${(stats.memory.total / 1e9).toFixed(2)} GB)
-                </div>
-                <div class="stat"><strong>Disk Usage:</strong> 
-                    ${stats.disk.percent}% 
-                    (${(stats.disk.used / 1e9).toFixed(2)} GB / ${(stats.disk.total / 1e9).toFixed(2)} GB)
-                </div>
-                <div class="stat"><strong>Load Average:</strong> 
-                    1m: ${stats.load_avg[0].toFixed(1)}, 5m: ${stats.load_avg[1].toFixed(1)}, 15m: ${stats.load_avg[2].toFixed(1)}
-                </div>
-            `;
-        }
-
-        // Get stats every second
-        setInterval(getStats, 1000);
     </script>
 </body>
 </html>
