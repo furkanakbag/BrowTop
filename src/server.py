@@ -17,7 +17,12 @@ connected_clients = []
 
 # Routes and WebSocket handlers
 async def index(request):
-    return web.FileResponse('./src/monitor.html')
+    # Serve the HTML file for the root route
+    html_path = os.path.join(os.path.dirname(__file__), 'monitor.html')
+    if os.path.exists(html_path):
+        return web.FileResponse(html_path)
+    logger.error(f"HTML file not found at path: {html_path}")
+    return web.Response(text="HTML file not found", status=404)
 
 async def authenticate(request):
     data = await request.json()
@@ -38,6 +43,8 @@ async def websocket_handler(request):
             await asyncio.sleep(2)  # Update interval
     except asyncio.CancelledError:
         logger.info("WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
     finally:
         connected_clients.remove(ws)
     return ws
@@ -62,7 +69,10 @@ def get_system_stats():
 def get_process_list():
     processes = []
     for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-        processes.append(proc.info)
+        try:
+            processes.append(proc.info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass  # Skip processes that can't be accessed
     return sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)
 
 def get_system_logs():
@@ -72,12 +82,15 @@ def get_system_logs():
         return lines
     except FileNotFoundError:
         return ["Log file not found"]
+    except PermissionError:
+        return ["Log file is not accessible. Please check permissions."]
 
 # Main app setup
 app = web.Application()
-app.router.add_get('/', index)
-app.router.add_post('/authenticate', authenticate)
-app.router.add_get('/ws', websocket_handler)
+app.router.add_get('/', index)  # Serve the HTML file
+app.router.add_post('/authenticate', authenticate)  # Handle authentication
+app.router.add_get('/ws', websocket_handler)  # WebSocket for live stats
 
 if __name__ == '__main__':
+    logger.info("Starting the server...")
     web.run_app(app, host='0.0.0.0', port=8765)

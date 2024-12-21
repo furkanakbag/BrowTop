@@ -16,7 +16,10 @@
             margin: 0 auto;
             padding: 20px;
         }
-        #login-section, #monitor-section {
+        #login-section {
+            display: block;
+        }
+        #monitor-section {
             display: none;
         }
         table {
@@ -44,7 +47,7 @@
 
         <div id="monitor-section">
             <h1>System Monitor</h1>
-            <div id="stats"></div>
+            <div id="stats">Loading...</div>
         </div>
     </div>
 
@@ -67,12 +70,23 @@
                 } else {
                     document.getElementById("error-message").innerText = "Invalid password!";
                 }
+            })
+            .catch(error => {
+                console.error("Authentication error:", error);
+                document.getElementById("error-message").innerText = "Failed to connect to the server!";
             });
         }
 
         function connectWebSocket() {
             websocket = new WebSocket(wsUrl);
-            websocket.onmessage = function(event) {
+            websocket.onopen = function () {
+                console.log("WebSocket connection established.");
+            };
+            websocket.onerror = function (error) {
+                console.error("WebSocket error:", error);
+                alert("Unable to establish WebSocket connection.");
+            };
+            websocket.onmessage = function (event) {
                 const stats = JSON.parse(event.data);
                 displayStats(stats);
             };
