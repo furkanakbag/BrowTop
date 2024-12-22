@@ -22,6 +22,7 @@ async def get_system_stats():
         "disk": psutil.disk_usage("/")._asdict(),
         "load_avg": psutil.getloadavg(),
         "processes": await get_process_list(),
+        "process_summary": get_process_summary(),
     }
     return stats
 
@@ -34,6 +35,35 @@ async def get_process_list():
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
     return sorted(processes, key=lambda x: x.get("cpu_percent", 0), reverse=True)[:10]  # Top 10 processes
+
+def get_process_summary():
+    """Get summary of the number of processes and their states."""
+    process_states = {
+        "running": 0,
+        "sleeping": 0,
+        "stopped": 0,
+        "zombie": 0,
+        "other": 0,
+    }
+
+    for proc in psutil.process_iter(['status']):
+        try:
+            status = proc.info['status']
+            if status == psutil.STATUS_RUNNING:
+                process_states["running"] += 1
+            elif status == psutil.STATUS_SLEEPING:
+                process_states["sleeping"] += 1
+            elif status == psutil.STATUS_STOPPED:
+                process_states["stopped"] += 1
+            elif status == psutil.STATUS_ZOMBIE:
+                process_states["zombie"] += 1
+            else:
+                process_states["other"] += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+
+    total_processes = sum(process_states.values())
+    return {"total": total_processes, **process_states}
 
 async def send_stats(request):
     """Send system stats and user info to WebSocket client."""
