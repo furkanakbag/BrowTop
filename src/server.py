@@ -6,7 +6,7 @@ import ssl
 import psutil
 from aiohttp import web
 
-last_user = None  # Variable to track the last logged-in user
+last_users = []  # List to track the last 10 logged-in users
 
 async def monitor(request):
     """Serve the monitor.html file."""
@@ -25,7 +25,7 @@ async def get_system_stats():
 
 async def send_stats(request):
     """Send system stats and user info to WebSocket client."""
-    global last_user
+    global last_users
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
@@ -37,8 +37,12 @@ async def send_stats(request):
                     stats = await get_system_stats()
                     await ws.send_str(json.dumps(["stats", stats]))
                 elif data["action"] == "login":
-                    last_user = data["username"]
-                    await ws.send_str(json.dumps(["last_user", last_user]))
+                    username = data["username"]
+                    # Add username to the list and maintain only the last 10 users
+                    last_users.append(username)
+                    if len(last_users) > 10:
+                        last_users.pop(0)
+                    await ws.send_str(json.dumps(["last_users", last_users]))
             except Exception as e:
                 print(f"Error processing WebSocket message: {e}")
         elif msg.type == web.WSMsgType.close:
