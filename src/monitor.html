@@ -33,6 +33,8 @@
     <div id="monitor-screen" class="hidden">
         <h1>Real-time Server Statistics</h1>
         <div id="stats">Loading...</div>
+        <h3>Current User</h3>
+        <div id="current-user">No user logged in</div>
         <h3>Last 10 Users</h3>
         <div id="last-users">No users logged in yet</div>
     </div>
@@ -43,6 +45,7 @@
         const loginScreen = document.getElementById("login-screen");
         const monitorScreen = document.getElementById("monitor-screen");
         const statsDiv = document.getElementById("stats");
+        const currentUserDiv = document.getElementById("current-user");
         const lastUsersDiv = document.getElementById("last-users");
 
         const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
@@ -58,6 +61,8 @@
                 updateStats(message[1]);
             } else if (message[0] === "last_users") {
                 updateLastUsers(message[1]);
+            } else if (message[0] === "current_user") {
+                updateCurrentUser(message[1]);
             }
         };
 
@@ -89,6 +94,10 @@
                     1m: ${stats.load_avg[0].toFixed(1)}, 5m: ${stats.load_avg[1].toFixed(1)}, 15m: ${stats.load_avg[2].toFixed(1)}
                 </div>
             `;
+        }
+
+        function updateCurrentUser(username) {
+            currentUserDiv.innerText = username || "No user logged in";
         }
 
         function updateLastUsers(users) {
