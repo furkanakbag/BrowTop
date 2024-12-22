@@ -9,129 +9,50 @@
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-
-        .container {
-            background-color: #fff;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 500px;
             padding: 20px;
         }
-
-        h2, h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 20px;
+        .hidden {
+            display: none;
         }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 5px;
-            background-color: #007bff;
-            color: #fff;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
         .error {
             color: red;
             font-size: 14px;
-            margin-top: 10px;
-            text-align: center;
         }
-
-        #monitor-screen {
-            display: none;
-        }
-
         .log-box {
             border: 1px solid #ddd;
             padding: 10px;
             max-height: 200px;
             overflow-y: auto;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-
-        .stats-section {
-            margin-top: 20px;
-        }
-
-        .stats-section h3 {
-            color: #444;
-            margin-bottom: 10px;
-        }
-
-        .stats-section div {
-            margin-bottom: 10px;
+            background-color: #fff;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Login Screen -->
-        <div id="login-screen">
-            <h2>Login</h2>
-            <input type="text" id="username" placeholder="Enter your username">
-            <input type="password" id="password" placeholder="Enter your password">
-            <button onclick="login()">Login</button>
-            <p id="error-message" class="error"></p>
-        </div>
+    <!-- Login Screen -->
+    <div id="login-screen">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Enter your username"><br><br>
+        <input type="password" id="password" placeholder="Enter your password"><br><br>
+        <button onclick="login()">Login</button>
+        <p id="error-message" class="error"></p>
+    </div>
 
-        <!-- Monitor Screen -->
-        <div id="monitor-screen">
-            <h1>Real-time Server Monitor</h1>
-            <div id="stats" class="stats-section">Loading...</div>
-            <div class="stats-section">
-                <h3>System Uptime</h3>
-                <div id="system-uptime">Loading...</div>
-            </div>
-            <div class="stats-section">
-                <h3>Process Summary</h3>
-                <div id="process-summary">Loading...</div>
-            </div>
-            <div class="stats-section">
-                <h3>Process List</h3>
-                <div id="process-list">Loading...</div>
-            </div>
-            <div class="stats-section">
-                <h3>Current User</h3>
-                <div id="current-user">No user logged in</div>
-            </div>
-            <div class="stats-section">
-                <h3>Last 10 Users</h3>
-                <div id="last-users">No users logged in yet</div>
-            </div>
-            <div class="stats-section">
-                <h3>System Logs (Last 50 Lines)</h3>
-                <div id="system-logs" class="log-box">Loading...</div>
-            </div>
-        </div>
+    <!-- Monitor Screen -->
+    <div id="monitor-screen" class="hidden">
+        <h1>Real-time Server Statistics</h1>
+        <div id="stats">Loading...</div>
+        <h3>System Uptime</h3>
+        <div id="system-uptime">Loading...</div>
+        <h3>Process Summary</h3>
+        <div id="process-summary">Loading...</div>
+        <h3>Process List</h3>
+        <div id="process-list">Loading...</div>
+        <h3>Current User</h3>
+        <div id="current-user">No user logged in</div>
+        <h3>Last 10 Users</h3>
+        <div id="last-users">No users logged in yet</div>
+        <h3>System Logs (Last 50 Lines)</h3>
+        <div id="system-logs" class="log-box">Loading...</div>
     </div>
 
     <script>
@@ -159,8 +80,8 @@
             const message = JSON.parse(event.data);
             if (message[0] === "auth_status") {
                 if (message[1].status === "success") {
-                    loginScreen.style.display = "none";
-                    monitorScreen.style.display = "block";
+                    loginScreen.classList.add("hidden");
+                    monitorScreen.classList.remove("hidden");
                 } else {
                     errorMessage.innerText = "Invalid username or password!";
                 }
