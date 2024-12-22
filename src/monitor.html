@@ -12,7 +12,7 @@
             padding: 0;
         }
         #login-section {
-            display: none;
+            display: block;
             text-align: center;
             margin-top: 20%;
         }
@@ -36,25 +36,23 @@
     </div>
     <div id="monitor-section">
         <h1>System Monitor</h1>
-        <div id="stats">Loading...</div>
+        <pre id="stats">Loading...</pre>
     </div>
 
     <script>
-        let isLoggedIn = false; // Initial login state
+        let isLoggedIn = false;
 
-        // Show either the login or the monitor section
         function updateView() {
             if (isLoggedIn) {
                 document.getElementById("login-section").style.display = "none";
                 document.getElementById("monitor-section").style.display = "block";
-                loadStats(); // Load stats after login
+                loadStats();
             } else {
                 document.getElementById("login-section").style.display = "block";
                 document.getElementById("monitor-section").style.display = "none";
             }
         }
 
-        // Authenticate user
         async function authenticate() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
@@ -67,21 +65,19 @@
 
             const data = await response.json();
             if (data.status === "success") {
-                isLoggedIn = true; // Mark user as logged in
-                updateView(); // Update view to monitor section
+                isLoggedIn = true;
+                updateView();
             } else {
                 document.getElementById("error-message").innerText = "Invalid credentials!";
             }
         }
 
-        // Load system stats
         async function loadStats() {
-            const response = await fetch("/ws");
-            const data = await response.json();
-            document.getElementById("stats").innerText = JSON.stringify(data, null, 2);
+            const response = await fetch("/monitor");
+            const data = await response.text();
+            document.getElementById("stats").innerText = data;
         }
 
-        // Initialize view on page load
         updateView();
     </script>
 </body>
