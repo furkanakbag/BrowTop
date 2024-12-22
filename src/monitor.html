@@ -40,6 +40,8 @@
     <div id="monitor-screen" class="hidden">
         <h1>Real-time Server Statistics</h1>
         <div id="stats">Loading...</div>
+        <h3>System Uptime</h3>
+        <div id="system-uptime">Loading...</div>
         <h3>Process Summary</h3>
         <div id="process-summary">Loading...</div>
         <h3>Process List</h3>
@@ -63,6 +65,7 @@
         const currentUserDiv = document.getElementById("current-user");
         const lastUsersDiv = document.getElementById("last-users");
         const systemLogsDiv = document.getElementById("system-logs");
+        const systemUptimeDiv = document.getElementById("system-uptime");
 
         const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
         const ws = new WebSocket(server_url);
@@ -75,6 +78,7 @@
             const message = JSON.parse(event.data);
             if (message[0] === "stats") {
                 updateStats(message[1]);
+                updateSystemUptime(message[1].uptime);
                 updateProcessSummary(message[1].process_summary);
                 updateProcessList(message[1].processes);
                 updateSystemLogs(message[1].logs);
@@ -115,6 +119,10 @@
             `;
         }
 
+        function updateSystemUptime(uptime) {
+            systemUptimeDiv.innerText = uptime;
+        }
+
         function updateProcessSummary(summary) {
             processSummaryDiv.innerHTML = `
                 <div><strong>Total Processes:</strong> ${summary.total}</div>
@@ -122,14 +130,19 @@
                 <div><strong>Sleeping:</strong> ${summary.sleeping}</div>
                 <div><strong>Stopped:</strong> ${summary.stopped}</div>
                 <div><strong>Zombie:</strong> ${summary.zombie}</div>
-                <div><strong>Other:</strong> ${summary.other}</div>
             `;
         }
 
         function updateProcessList(processes) {
             processListDiv.innerHTML = processes.length > 0
-                ? processes.map(proc => `<div>PID: ${proc.pid}, Name: ${proc.name}, CPU: ${proc.cpu_percent}%, Mem: ${proc.memory_percent}%</div>`).join('')
+                ? processes.map(proc => `<div>PID: ${proc.pid}, Name: ${proc.name}, CPU: ${proc.cpu_percent}%, Memory: ${proc.memory_percent}%</div>`).join('')
                 : 'No processes available';
+        }
+
+        function updateSystemLogs(logs) {
+            systemLogsDiv.innerHTML = logs.length > 0
+                ? logs.map(log => `<div>${log}</div>`).join('')
+                : 'No logs available';
         }
 
         function updateCurrentUser(username) {
@@ -140,12 +153,6 @@
             lastUsersDiv.innerHTML = users.length > 0
                 ? users.map(user => `<div>${user}</div>`).join('')
                 : 'No users logged in yet';
-        }
-
-        function updateSystemLogs(logs) {
-            systemLogsDiv.innerHTML = logs.length > 0
-                ? logs.map(log => `<div>${log}</div>`).join('')
-                : 'No logs available';
         }
 
         setInterval(() => {

@@ -2,7 +2,7 @@ import asyncio
 import json
 import pathlib
 import ssl
-
+import time
 import psutil
 from aiohttp import web
 
@@ -21,11 +21,20 @@ async def get_system_stats():
         "memory": psutil.virtual_memory()._asdict(),
         "disk": psutil.disk_usage("/")._asdict(),
         "load_avg": psutil.getloadavg(),
+        "uptime": get_system_uptime(),
         "processes": await get_process_list(),
         "process_summary": get_process_summary(),
         "logs": get_system_logs(),
     }
     return stats
+
+def get_system_uptime():
+    """Get system uptime as a human-readable string."""
+    boot_time = psutil.boot_time()
+    uptime_seconds = int(time.time() - boot_time)
+    days, remainder = divmod(uptime_seconds, 86400)
+    hours, minutes = divmod(remainder, 3600)[0], divmod(remainder, 60)[1]
+    return f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
 
 async def get_process_list():
     """Fetch list of processes."""
