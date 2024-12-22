@@ -6,10 +6,7 @@ import ssl
 import psutil
 from aiohttp import web
 
-async def login(request):
-    """Serve the login.html file."""
-    html_path = pathlib.Path(__file__).parents[0].joinpath("login.html")
-    return web.FileResponse(html_path)
+last_user = None  # Variable to track the last logged-in user
 
 async def monitor(request):
     """Serve the monitor.html file."""
@@ -27,18 +24,23 @@ async def get_system_stats():
     return stats
 
 async def send_stats(request):
-    """Send system stats to WebSocket client."""
+    """Send system stats and user info to WebSocket client."""
+    global last_user
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
     async for msg in ws:
-        if msg.type == web.WSMsgType.text and msg.data == "stats":
-            data = await get_system_stats()
-            response = ["stats", data]
-            await ws.send_str(json.dumps(response))
-        elif msg.type == web.WSMsgType.binary:
-            # Ignore binary messages
-            continue
+        if msg.type == web.WSMsgType.text:
+            try:
+                data = json.loads(msg.data)
+                if data["action"] == "stats":
+                    stats = await get_system_stats()
+                    await ws.send_str(json.dumps(["stats", stats]))
+                elif data["action"] == "login":
+                    last_user = data["username"]
+                    await ws.send_str(json.dumps(["last_user", last_user]))
+            except Exception as e:
+                print(f"Error processing WebSocket message: {e}")
         elif msg.type == web.WSMsgType.close:
             break
 
@@ -58,7 +60,6 @@ def run():
     app = web.Application()
     app.add_routes(
         [
-            web.get("/", login),
             web.get("/monitor", monitor),
             web.get("/ws", send_stats),
         ]
