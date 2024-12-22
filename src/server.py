@@ -6,17 +6,17 @@ import time
 import psutil
 from aiohttp import web
 
-# New: Password Authentication
-PASSWORD = "123"  # Static password for authentication
-last_users = []  # List to track the last 10 logged-in users
-current_user = None  # Track the currently logged-in user
+
+PASSWORD = "123"  
+last_users = []  
+current_user = None  
 
 async def authenticate(ws, username, password):
     """Authenticate the user."""
     global last_users, current_user
     if password == PASSWORD:
         current_user = username
-        # Add username to the list and maintain only the last 10 users
+        
         last_users.append(username)
         if len(last_users) > 10:
             last_users.pop(0)
@@ -26,7 +26,7 @@ async def authenticate(ws, username, password):
     else:
         await ws.send_str(json.dumps(["auth_status", {"status": "failure"}]))
 
-# Original Code Below
+
 async def monitor(request):
     """Serve the monitor.html file."""
     html_path = pathlib.Path(__file__).parents[0].joinpath("monitor.html")
