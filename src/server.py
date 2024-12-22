@@ -2,64 +2,69 @@ import asyncio
 import json
 import pathlib
 import ssl
+
+import psutil
 from aiohttp import web
 
-SECURE_PASSWORD = "123"
-LOGINS_DB = pathlib.Path(__file__).parent.joinpath("logins.json")
-
-
-def save_login(username):
-    """Save the login username."""
-    logins = []
-    if LOGINS_DB.exists():
-        with open(LOGINS_DB, "r") as file:
-            logins = json.load(file)
-
-    logins.insert(0, {"username": username})
-    logins = logins[:10]
-    with open(LOGINS_DB, "w") as file:
-        json.dump(logins, file)
-
+async def login(request):
+    """Serve the login.html file."""
+    html_path = pathlib.Path(__file__).parents[0].joinpath("login.html")
+    return web.FileResponse(html_path)
 
 async def monitor(request):
     """Serve the monitor.html file."""
-    html_path = pathlib.Path(__file__).parent.joinpath("monitor.html")
+    html_path = pathlib.Path(__file__).parents[0].joinpath("monitor.html")
     return web.FileResponse(html_path)
 
+async def get_system_stats():
+    """Collect system statistics."""
+    stats = {
+        "cpu": psutil.cpu_percent(interval=1),
+        "memory": psutil.virtual_memory()._asdict(),
+        "disk": psutil.disk_usage("/")._asdict(),
+        "load_avg": psutil.getloadavg(),
+    }
+    return stats
 
-async def login(request):
-    """Authenticate the user."""
-    try:
-        data = await request.json()
-        username = data.get("username")
-        password = data.get("password")
+async def send_stats(request):
+    """Send system stats to WebSocket client."""
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
 
-        if password == SECURE_PASSWORD:
-            save_login(username)
-            return web.json_response({"status": "success"})
-        return web.json_response({"status": "failure"})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    async for msg in ws:
+        if msg.type == web.WSMsgType.text and msg.data == "stats":
+            data = await get_system_stats()
+            response = ["stats", data]
+            await ws.send_str(json.dumps(response))
+        elif msg.type == web.WSMsgType.binary:
+            # Ignore binary messages
+            continue
+        elif msg.type == web.WSMsgType.close:
+            break
 
+    return ws
 
 def create_ssl_context():
-    """Set up SSL context."""
+    """Create SSL context for secure WebSocket connection."""
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     cert_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.crt")
     key_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.key")
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(cert_file, key_file)
     return ssl_context
 
-
 def run():
+    """Start the WebSocket server."""
     ssl_context = create_ssl_context()
     app = web.Application()
-    app.add_routes([
-        web.get("/monitor", monitor),
-        web.post("/login", login),
-    ])
+    app.add_routes(
+        [
+            web.get("/", login),
+            web.get("/monitor", monitor),
+            web.get("/ws", send_stats),
+        ]
+    )
     web.run_app(app, port=8765, ssl_context=ssl_context)
 
-
 if __name__ == "__main__":
+    print("Server started at wss://localhost:8765")
     run()

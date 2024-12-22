@@ -3,82 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Monitor</title>
+    <title>Server Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
             margin: 0;
-            padding: 0;
-        }
-        #login-section {
-            display: block;
-            text-align: center;
-            margin-top: 20%;
-        }
-        #monitor-section {
-            display: none;
             padding: 20px;
         }
-        .error-message {
+        .hidden {
+            display: none;
+        }
+        .error {
             color: red;
             font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div id="login-section">
+    <!-- Login Screen -->
+    <div id="login-screen">
         <h2>Login</h2>
         <input type="text" id="username" placeholder="Enter your username"><br><br>
-        <input type="password" id="password" placeholder="Enter password"><br><br>
-        <button onclick="authenticate()">Login</button>
-        <p id="error-message" class="error-message"></p>
+        <button onclick="login()">Login</button>
+        <p id="error-message" class="error"></p>
     </div>
-    <div id="monitor-section">
-        <h1>System Monitor</h1>
-        <pre id="stats">Loading...</pre>
+
+    <!-- Monitor Screen -->
+    <div id="monitor-screen" class="hidden">
+        <h1>Real-time Server Statistics</h1>
+        <div id="stats">Loading...</div>
     </div>
 
     <script>
-        let isLoggedIn = false;
+        const usernameInput = document.getElementById("username");
+        const errorMessage = document.getElementById("error-message");
+        const loginScreen = document.getElementById("login-screen");
+        const monitorScreen = document.getElementById("monitor-screen");
+        const statsDiv = document.getElementById("stats");
 
-        function updateView() {
-            if (isLoggedIn) {
-                document.getElementById("login-section").style.display = "none";
-                document.getElementById("monitor-section").style.display = "block";
-                loadStats();
+        const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
+        const ws = new WebSocket(server_url);
+
+        ws.onerror = (e) => {
+            statsDiv.innerHTML = `<div style="color:red;">WebSocket Error: ${e.message}</div>`;
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message[0] === "stats") {
+                updateStats(message[1]);
+            }
+        };
+
+        function login() {
+            const username = usernameInput.value.trim();
+            if (username) {
+                localStorage.setItem("username", username);
+                errorMessage.innerText = "";
+                loginScreen.classList.add("hidden");
+                monitorScreen.classList.remove("hidden");
+                requestStats();
             } else {
-                document.getElementById("login-section").style.display = "block";
-                document.getElementById("monitor-section").style.display = "none";
+                errorMessage.innerText = "Username cannot be empty!";
             }
         }
 
-        async function authenticate() {
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
+        function updateStats(stats) {
+            statsDiv.innerHTML = `
+                <div><strong>CPU Usage:</strong> ${stats.cpu}%</div>
+                <div><strong>Memory Usage:</strong>
+                    ${((stats.memory.used / stats.memory.total) * 100).toFixed(2)}%
+                    (${(stats.memory.used / 1e9).toFixed(2)} GB / ${(stats.memory.total / 1e9).toFixed(2)} GB)
+                </div>
+                <div><strong>Disk Usage:</strong>
+                    ${stats.disk.percent}%
+                    (${(stats.disk.used / 1e9).toFixed(2)} GB / ${(stats.disk.total / 1e9).toFixed(2)} GB)
+                </div>
+                <div><strong>Load Average:</strong>
+                    1m: ${stats.load_avg[0].toFixed(1)}, 5m: ${stats.load_avg[1].toFixed(1)}, 15m: ${stats.load_avg[2].toFixed(1)}
+                </div>
+            `;
+        }
 
-            const response = await fetch("/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-            if (data.status === "success") {
-                isLoggedIn = true;
-                updateView();
-            } else {
-                document.getElementById("error-message").innerText = "Invalid credentials!";
+        function requestStats() {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send("stats");
             }
         }
 
-        async function loadStats() {
-            const response = await fetch("/monitor");
-            const data = await response.text();
-            document.getElementById("stats").innerText = data;
-        }
-
-        updateView();
+        setInterval(requestStats, 3000); // Request stats every 3 seconds
     </script>
 </body>
 </html>
