@@ -23,6 +23,7 @@ async def get_system_stats():
         "load_avg": psutil.getloadavg(),
         "processes": await get_process_list(),
         "process_summary": get_process_summary(),
+        "logs": get_system_logs(),
     }
     return stats
 
@@ -64,6 +65,20 @@ def get_process_summary():
 
     total_processes = sum(process_states.values())
     return {"total": total_processes, **process_states}
+
+def get_system_logs():
+    """Fetch the last 50 lines of the system log."""
+    log_path = '/var/log/syslog' if pathlib.Path('/var/log/syslog').exists() else '/var/log/messages'
+    try:
+        with open(log_path, 'r') as log_file:
+            logs = log_file.readlines()[-50:]  # Get the last 50 lines
+        return logs if logs else ["No logs available."]
+    except FileNotFoundError:
+        return ["Log file not found."]
+    except PermissionError:
+        return ["Permission denied while reading logs."]
+    except Exception as e:
+        return [f"Error reading logs: {str(e)}"]
 
 async def send_stats(request):
     """Send system stats and user info to WebSocket client."""

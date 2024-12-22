@@ -18,6 +18,13 @@
             color: red;
             font-size: 14px;
         }
+        .log-box {
+            border: 1px solid #ddd;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -41,6 +48,8 @@
         <div id="current-user">No user logged in</div>
         <h3>Last 10 Users</h3>
         <div id="last-users">No users logged in yet</div>
+        <h3>System Logs (Last 50 Lines)</h3>
+        <div id="system-logs" class="log-box">Loading...</div>
     </div>
 
     <script>
@@ -53,6 +62,7 @@
         const processListDiv = document.getElementById("process-list");
         const currentUserDiv = document.getElementById("current-user");
         const lastUsersDiv = document.getElementById("last-users");
+        const systemLogsDiv = document.getElementById("system-logs");
 
         const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
         const ws = new WebSocket(server_url);
@@ -67,6 +77,7 @@
                 updateStats(message[1]);
                 updateProcessSummary(message[1].process_summary);
                 updateProcessList(message[1].processes);
+                updateSystemLogs(message[1].logs);
             } else if (message[0] === "last_users") {
                 updateLastUsers(message[1]);
             } else if (message[0] === "current_user") {
@@ -129,6 +140,12 @@
             lastUsersDiv.innerHTML = users.length > 0
                 ? users.map(user => `<div>${user}</div>`).join('')
                 : 'No users logged in yet';
+        }
+
+        function updateSystemLogs(logs) {
+            systemLogsDiv.innerHTML = logs.length > 0
+                ? logs.map(log => `<div>${log}</div>`).join('')
+                : 'No logs available';
         }
 
         setInterval(() => {
