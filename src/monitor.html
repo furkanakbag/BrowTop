@@ -3,68 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>System Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #282c34;
-            color: #ffffff;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        #login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            z-index: 1000;
         }
-        form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        #login-modal .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
         }
-        input {
-            margin: 10px;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #61dafb;
-            border-radius: 5px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #61dafb;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        .error-message {
+            color: red;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <h1>Login</h1>
-    <form id="login-form">
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <button type="submit">Login</button>
-        <p id="error-message" style="color: red;"></p>
-    </form>
+    <div id="login-modal">
+        <div class="modal-content">
+            <h2>Login</h2>
+            <input type="text" id="username" placeholder="Enter your username" /><br><br>
+            <input type="password" id="password" placeholder="Enter password" /><br><br>
+            <button onclick="authenticate()">Login</button>
+            <p id="error-message" class="error-message"></p>
+        </div>
+    </div>
+    <div id="stats-container" style="display: none;">
+        <h1>System Monitor</h1>
+        <div id="stats">Loading...</div>
+    </div>
+
     <script>
-        document.getElementById("login-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
+        async function authenticate() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
 
             const response = await fetch("/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ username, password })
             });
 
-            const result = await response.json();
-            if (response.ok) {
-                window.location.href = "/monitor";
+            const data = await response.json();
+            if (data.status === "success") {
+                document.getElementById("login-modal").style.display = "none";
+                document.getElementById("stats-container").style.display = "block";
+                loadStats();
             } else {
-                document.getElementById("error-message").innerText = result.message;
+                document.getElementById("error-message").innerText = "Invalid credentials!";
             }
-        });
+        }
+
+        async function loadStats() {
+            // Load and display system stats here.
+        }
     </script>
 </body>
 </html>
