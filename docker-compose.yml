@@ -1,4 +1,5 @@
 services:
+<<<<<<< HEAD
   deneme-berkecan:
     build:
       dockerfile: Dockerfile
@@ -11,3 +12,15 @@ services:
       - /var/run/utmp:/var/run/utmp:ro  # for getting the host's current users
       - /var/log/wtmp:/var/log/wtmp:ro  # for getting the host's last users
       - /var/log/syslog:/var/log/syslog # for getting the host's syslog
+=======
+  monitor:
+    build: .
+    container_name: monitor_app
+    ports:
+      - "1022:8765"  
+    environment:
+      - PORT=8765
+    volumes:
+      - ./cert:/app/cert
+    restart: unless-stopped
+>>>>>>> 844aa09c57ae385b20fe0a1a14ad6b069e784812
