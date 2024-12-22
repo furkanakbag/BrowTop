@@ -21,8 +21,19 @@ async def get_system_stats():
         "memory": psutil.virtual_memory()._asdict(),
         "disk": psutil.disk_usage("/")._asdict(),
         "load_avg": psutil.getloadavg(),
+        "processes": await get_process_list(),
     }
     return stats
+
+async def get_process_list():
+    """Fetch list of processes."""
+    processes = []
+    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
+        try:
+            processes.append(proc.info)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return sorted(processes, key=lambda x: x.get("cpu_percent", 0), reverse=True)[:10]  # Top 10 processes
 
 async def send_stats(request):
     """Send system stats and user info to WebSocket client."""
