@@ -1,172 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Server Monitor</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #282c34;
-            color: #ffffff;
-            margin: 0;
-            padding: 0;
+            margin: 20px;
         }
-        #current-user {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            font-size: 16px;
-            color: #ffffff;
-            display: none;
+        .stats {
+            margin-top: 10px;
         }
-        .container {
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-            background-color: #3b4048;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            text-align: center;
+        .stat {
+            margin: 10px 0;
         }
-        .container h2 {
-            margin-bottom: 20px;
-            color: #61dafb;
-        }
-        .input-group {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        .input-group input {
-            width: calc(100% - 50px);
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        .show-password-btn {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #61dafb;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        .login-btn {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            background-color: #61dafb;
-            color: #000;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        #monitor-section {
-            display: none;
-        }
+    .error {
+        margin: 10px 0;
+        color: red;
+    }
     </style>
 </head>
 <body>
-    <div id="current-user"></div>
-    <div class="container" id="login-section">
-        <h2>System Monitor Login</h2>
-        <div class="input-group">
-            <input type="password" id="password" placeholder="Enter Password">
-            <button class="show-password-btn" onclick="togglePassword()">Show</button>
-        </div>
-        <button class="login-btn" onclick="authenticate()">Login</button>
-        <p id="error-message" class="error-message"></p>
-    </div>
-
-    <div class="container" id="monitor-section">
-        <h1>System Monitor</h1>
-        <div id="stats">Loading...</div>
-    </div>
+    <h1>Real-time Server Statistics</h1>
+    <div class="error" id="error"></div>
+    <div class="stats" id="stats"></div>
     <script>
         const server_url = 'wss://' + location.host + location.pathname.replace('monitor', 'ws');
         const statsDiv = document.getElementById('stats');
-        const processesDiv = document.getElementById('processes');
-        const logListDiv = document.getElementById('log-list');
-        const userListDiv = document.getElementById('user-list');
+        const errorDiv = document.getElementById('error');
         const ws = new WebSocket(server_url);
 
-        function togglePassword() {
-            const passwordField = document.getElementById("password");
-            const showPasswordButton = document.querySelector(".show-password-btn");
+        ws.onconnect = () => {
+            statsDiv.innerHTML = `<div class="stat">Connected</div>`;
+        };
 
-            if (passwordField.type === "password") {
-                passwordField.type = "text";
-                showPasswordButton.textContent = "Hide";
+        ws.onerror = (e) => {
+            errorDiv.innerHTML = `<div class="stat" style="color:red;">Error: ${e.message}</div>`;
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            console.log('message', message);
+
+            const messageType = message[0];
+            if (messageType === 'stats') {
+                updateStats(message[1]);
             } else {
-                passwordField.type = "password";
-                showPasswordButton.textContent = "Show";
+                errorDiv.innerHTML = `<div class="stat" style="color:red;">Error: ${message}</div>`;
             }
+        };
+
+        ws.onclose = () => {
+            statsDiv.innerHTML = `<div class="stat" style="color:red;">Connection closed</div>`;
+        };
+
+        function getStats() {
+            ws.send('stats');
         }
 
-        function authenticate() {
-            const password = document.getElementById("password").value;
-            fetch('/authenticate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById("login-section").style.display = "none";
-                    document.getElementById("monitor-section").style.display = "block";
-                    document.getElementById("current-user").style.display = "block";
-                    connectWebSocket();
-                } else {
-                    document.getElementById("error-message").innerText = "Invalid password! Please try again.";
-                }
-            })
-            .catch(error => {
-                console.error("Authentication error:", error);
-                document.getElementById("error-message").innerText = "Failed to connect to the server!";
-            });
-        }
+function updateStats(stats) {
+    statsDiv.innerHTML = `
+        <div class="stat"><strong>CPU Usage:</strong> ${stats.cpu}%</div>
+        <div class="stat"><strong>Memory Usage:</strong>
+            ${((stats.memory.used / stats.memory.total) * 100).toFixed(2)}%
+            (${(stats.memory.used / 1e9).toFixed(2)} GB / ${(stats.memory.total / 1e9).toFixed(2)} GB)
+        </div>
+        <div class="stat"><strong>Disk Usage:</strong>
+            ${stats.disk.percent}%
+            (${(stats.disk.used / 1e9).toFixed(2)} GB / ${(stats.disk.total / 1e9).toFixed(2)} GB)
+        </div>
+        <div class="stat"><strong>Load Average:</strong>
+            1m: ${stats.load_avg[0].toFixed(1)}, 5m: ${stats.load_avg[1].toFixed(1)}, 15m: ${stats.load_avg[2].toFixed(1)}
+        </div>
+    `;
+}
 
-        function connectWebSocket() {
-            websocket = new WebSocket(wsUrl);
-            websocket.onopen = () => console.log("WebSocket connection established.");
-            websocket.onmessage = event => {
-                const stats = JSON.parse(event.data);
-                displayStats(stats);
-            };
-        }
-
-        function displayStats(stats) {
-            const currentUserDiv = document.getElementById("current-user");
-            currentUserDiv.innerHTML = `Logged in as: <strong>${stats.current_user}</strong>`;
-
-            const statsDiv = document.getElementById("stats");
-            statsDiv.innerHTML = `
-                <h3>CPU: ${stats.cpu}%</h3>
-                <h3>Memory: ${stats.memory.used}/${stats.memory.total} (${stats.memory.percent}%)</h3>
-                <h3>Disk: ${stats.disk.used}/${stats.disk.total} (${stats.disk.percent}%)</h3>
-                <h3>Uptime: ${new Date(stats.uptime * 1000).toLocaleString()}</h3>
-            `;
-
-            processesDiv.innerHTML = `
-                <h3>Processes</h3>
-                <div>Total: ${data.process_summary.total}</div>
-                <div>Running: ${data.process_summary.running}</div>
-                <div>Sleeping: ${data.process_summary.sleeping}</div>
-                <div>Stopped: ${data.process_summary.stopped}</div>
-                <div>Zombie: ${data.process_summary.zombie}</div>
-            `;
-
-            logListDiv.innerHTML = data.system_logs.map(log => `<div class="log">${log}</div>`).join('');
-            userListDiv.innerHTML = data.logged_users.map(user => `<div class="user">${user}</div>`).join('');
-        }
-
-        setInterval(() => ws.send('stats'), 1000);
-    </script>
+// Get stats every second
+setInterval(getStats, 1000);
+</script>
 </body>
 </html>

@@ -1,99 +1,75 @@
 import asyncio
 import json
-import os
-import getpass
-from aiohttp import web
+import pathlib
+import ssl
+
 import psutil
-import logging
+from aiohttp import web
 
-# Logging setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+async def hello(request):
+    text = "Hello"
+    return web.Response(text=text)
 
-# Password for authentication
-PASSWORD = "secure_password"
 
-# WebSocket clients
-connected_clients = []
+async def monitor(request):
+    path = pathlib.Path(__file__).parents[0].joinpath("monitor.html")
+    print("Serving {path}".format(path=path))
+    return web.FileResponse(path)
 
-# Routes and WebSocket handlers
-async def index(request):
-    # Serve the HTML file for the root route
-    html_path = os.path.join(os.path.dirname(__file__), 'monitor.html')
-    if os.path.exists(html_path):
-        return web.FileResponse(html_path)
-    logger.error(f"HTML file not found at path: {html_path}")
-    return web.Response(text="HTML file not found", status=404)
 
-async def authenticate(request):
-    data = await request.json()
-    if data.get("password") == PASSWORD:
-        return web.json_response({"status": "success"})
-    return web.json_response({"status": "failure"}, status=401)
+async def get_system_stats():
+    """Collect system statistics."""
+    stats = {
+        "cpu": psutil.cpu_percent(interval=1),
+        "memory": psutil.virtual_memory()._asdict(),
+        "disk": psutil.disk_usage("/")._asdict(),
+        "load_avg": psutil.getloadavg(),
+    }
+    return stats
 
-async def websocket_handler(request):
+
+async def send_stats(request):
+    """Send system stats to WebSocket client."""
+    print("Client connected")
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    connected_clients.append(ws)
-    logger.info("New WebSocket client connected")
 
-    try:
-        while True:
-            stats = get_system_stats()
-            logger.debug(f"Sending stats: {stats}")
-            await ws.send_json(stats)
-            await asyncio.sleep(2)  # Update interval
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-    finally:
-        logger.info("WebSocket connection closed")
-        connected_clients.remove(ws)
+    async for msg in ws:
+        if msg.type == web.WSMsgType.text and msg.data == "stats":
+            data = await get_system_stats()
+            response = ["stats", data]
+            await ws.send_str(json.dumps(response))
+        elif msg.type == web.WSMsgType.binary:
+            # Ignore binary messages
+            continue
+        elif msg.type == web.WSMsgType.close:
+            break
+
     return ws
 
-# System stats functions
-def get_system_stats():
-    process_info = get_process_list()
-    users = [user.name for user in psutil.users()]
-    uptime = psutil.boot_time()
-    current_user = getpass.getuser()  # Fetch the current user
 
-    return {
-        "cpu": psutil.cpu_percent(interval=None),
-        "memory": psutil.virtual_memory()._asdict(),
-        "disk": psutil.disk_usage('/')._asdict(),
-        "load": os.getloadavg(),
-        "processes": process_info,
-        "logged_in_users": users,
-        "uptime": uptime,
-        "current_user": current_user,  # Add current user
-        "log": get_system_logs(),
-    }
+def create_ssl_context():
+    """Create SSL context for secure WebSocket connection."""
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    cert_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.crt")
+    key_file = pathlib.Path(__file__).parents[1].joinpath("cert/localhost.key")
+    ssl_context.load_cert_chain(cert_file, key_file)
+    return ssl_context
 
-def get_process_list():
-    processes = []
-    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-        try:
-            processes.append(proc.info)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass  # Skip processes that can't be accessed
-    return sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)
+def run():
+    """Start WebSocket server."""
+    ssl_context = create_ssl_context()
+    app = web.Application()
+    app.add_routes(
+        [
+            web.get("/ws", send_stats),
+            web.get("/monitor", monitor),
+            web.get("/hello", hello),
+        ]
+    )
+    web.run_app(app, port=8765, ssl_context=ssl_context)
 
-def get_system_logs():
-    try:
-        with open('/var/log/syslog', 'r') as log_file:
-            lines = log_file.readlines()[-50:]
-        return lines
-    except FileNotFoundError:
-        return ["Log file not found"]
-    except PermissionError:
-        return ["Log file is not accessible. Please check permissions."]
 
-# Main app setup
-app = web.Application()
-app.router.add_get('/', index)  # Serve the HTML file
-app.router.add_post('/authenticate', authenticate)  # Handle authentication
-app.router.add_get('/ws', websocket_handler)  # WebSocket for live stats
-
-if __name__ == '__main__':
-    logger.info("Starting the server...")
-    web.run_app(app, host='0.0.0.0', port=9000)
+if __name__ == "__main__":
+    print("Server started at wss://localhost:8765")
+    run()
