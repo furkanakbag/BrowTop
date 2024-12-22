@@ -32,6 +32,7 @@
     <div id="login-screen">
         <h2>Login</h2>
         <input type="text" id="username" placeholder="Enter your username"><br><br>
+        <input type="password" id="password" placeholder="Enter your password"><br><br>
         <button onclick="login()">Login</button>
         <p id="error-message" class="error"></p>
     </div>
@@ -56,6 +57,7 @@
 
     <script>
         const usernameInput = document.getElementById("username");
+        const passwordInput = document.getElementById("password");
         const errorMessage = document.getElementById("error-message");
         const loginScreen = document.getElementById("login-screen");
         const monitorScreen = document.getElementById("monitor-screen");
@@ -76,7 +78,14 @@
 
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
-            if (message[0] === "stats") {
+            if (message[0] === "auth_status") {
+                if (message[1].status === "success") {
+                    loginScreen.classList.add("hidden");
+                    monitorScreen.classList.remove("hidden");
+                } else {
+                    errorMessage.innerText = "Invalid username or password!";
+                }
+            } else if (message[0] === "stats") {
                 updateStats(message[1]);
                 updateSystemUptime(message[1].uptime);
                 updateProcessSummary(message[1].process_summary);
@@ -91,14 +100,12 @@
 
         function login() {
             const username = usernameInput.value.trim();
-            if (username) {
-                localStorage.setItem("username", username);
+            const password = passwordInput.value.trim();
+            if (username && password) {
+                ws.send(JSON.stringify({ action: "login", username, password }));
                 errorMessage.innerText = "";
-                loginScreen.classList.add("hidden");
-                monitorScreen.classList.remove("hidden");
-                ws.send(JSON.stringify({ action: "login", username }));
             } else {
-                errorMessage.innerText = "Username cannot be empty!";
+                errorMessage.innerText = "Username and password cannot be empty!";
             }
         }
 

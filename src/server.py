@@ -6,9 +6,27 @@ import time
 import psutil
 from aiohttp import web
 
+# New: Password Authentication
+PASSWORD = "123"  # Static password for authentication
 last_users = []  # List to track the last 10 logged-in users
 current_user = None  # Track the currently logged-in user
 
+async def authenticate(ws, username, password):
+    """Authenticate the user."""
+    global last_users, current_user
+    if password == PASSWORD:
+        current_user = username
+        # Add username to the list and maintain only the last 10 users
+        last_users.append(username)
+        if len(last_users) > 10:
+            last_users.pop(0)
+        await ws.send_str(json.dumps(["auth_status", {"status": "success"}]))
+        await ws.send_str(json.dumps(["last_users", last_users]))
+        await ws.send_str(json.dumps(["current_user", current_user]))
+    else:
+        await ws.send_str(json.dumps(["auth_status", {"status": "failure"}]))
+
+# Original Code Below
 async def monitor(request):
     """Serve the monitor.html file."""
     html_path = pathlib.Path(__file__).parents[0].joinpath("monitor.html")
@@ -104,13 +122,8 @@ async def send_stats(request):
                     await ws.send_str(json.dumps(["stats", stats]))
                 elif data["action"] == "login":
                     username = data["username"]
-                    current_user = username
-                    # Add username to the list and maintain only the last 10 users
-                    last_users.append(username)
-                    if len(last_users) > 10:
-                        last_users.pop(0)
-                    await ws.send_str(json.dumps(["last_users", last_users]))
-                    await ws.send_str(json.dumps(["current_user", current_user]))
+                    password = data["password"]
+                    await authenticate(ws, username, password)
             except Exception as e:
                 print(f"Error processing WebSocket message: {e}")
         elif msg.type == web.WSMsgType.close:
