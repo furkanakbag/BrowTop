@@ -2,7 +2,7 @@ services:
   browtop:
     build:
       dockerfile: Dockerfile
-    container_name: browtop-arda
+    container_name: arda-furkan
     pid: host # for getting the host's ps aux, it is not a good approach but a way to get the host's ps aux
     ports:
       - "1033:8765"
