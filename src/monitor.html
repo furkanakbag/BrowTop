@@ -7,50 +7,120 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
             margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
             padding: 20px;
+            background: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
         }
         .hidden {
             display: none;
         }
+        .login-form {
+            text-align: center;
+            margin-top: 50px;
+        }
+        .login-form h2 {
+            margin-bottom: 20px;
+        }
+        .login-form input {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .login-form button {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .login-form button:hover {
+            background-color: #0056b3;
+        }
         .error {
             color: red;
             font-size: 14px;
+        }
+        h1, h3 {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stats-section {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .stats-box {
+            width: 45%;
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .stats-box h3 {
+            margin: 10px 0;
+            font-size: 1.1em;
         }
         .log-box {
             border: 1px solid #ddd;
             padding: 10px;
             max-height: 200px;
             overflow-y: auto;
-            background-color: #fff;
+            background-color: #f7f7f7;
+            border-radius: 5px;
+        }
+        .stats-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .stats-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .stats-list li:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
 <body>
     <!-- Login Screen -->
-    <div id="login-screen">
+    <div id="login-screen" class="login-form container">
         <h2>Login</h2>
-        <input type="text" id="username" placeholder="Enter your username"><br><br>
-        <input type="password" id="password" placeholder="Enter your password"><br><br>
+        <input type="text" id="username" placeholder="Enter your username"><br>
+        <input type="password" id="password" placeholder="Enter your password"><br>
         <button onclick="login()">Login</button>
         <p id="error-message" class="error"></p>
     </div>
 
     <!-- Monitor Screen -->
-    <div id="monitor-screen" class="hidden">
+    <div id="monitor-screen" class="container hidden">
         <h1>Real-time Server Statistics</h1>
-        <div id="stats">Loading...</div>
+        <div id="stats" class="stats-section"></div>
         <h3>System Uptime</h3>
-        <div id="system-uptime">Loading...</div>
+        <div id="system-uptime" class="stats-box">Loading...</div>
         <h3>Process Summary</h3>
-        <div id="process-summary">Loading...</div>
+        <div id="process-summary" class="stats-box">Loading...</div>
         <h3>Process List</h3>
-        <div id="process-list">Loading...</div>
+        <div id="process-list" class="stats-box">Loading...</div>
         <h3>Current User</h3>
-        <div id="current-user">No user logged in</div>
+        <div id="current-user" class="stats-box">No user logged in</div>
         <h3>Last 10 Users</h3>
-        <div id="last-users">No users logged in yet</div>
+        <div id="last-users" class="stats-box">No users logged in yet</div>
         <h3>System Logs (Last 50 Lines)</h3>
         <div id="system-logs" class="log-box">Loading...</div>
     </div>
