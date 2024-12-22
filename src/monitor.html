@@ -11,23 +11,14 @@
             margin: 0;
             padding: 0;
         }
-        #login-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        #login-modal .modal-content {
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
+        #login-section {
+            display: none;
             text-align: center;
+            margin-top: 20%;
+        }
+        #monitor-section {
+            display: none;
+            padding: 20px;
         }
         .error-message {
             color: red;
@@ -36,21 +27,34 @@
     </style>
 </head>
 <body>
-    <div id="login-modal">
-        <div class="modal-content">
-            <h2>Login</h2>
-            <input type="text" id="username" placeholder="Enter your username" /><br><br>
-            <input type="password" id="password" placeholder="Enter password" /><br><br>
-            <button onclick="authenticate()">Login</button>
-            <p id="error-message" class="error-message"></p>
-        </div>
+    <div id="login-section">
+        <h2>Login</h2>
+        <input type="text" id="username" placeholder="Enter your username"><br><br>
+        <input type="password" id="password" placeholder="Enter password"><br><br>
+        <button onclick="authenticate()">Login</button>
+        <p id="error-message" class="error-message"></p>
     </div>
-    <div id="stats-container" style="display: none;">
+    <div id="monitor-section">
         <h1>System Monitor</h1>
         <div id="stats">Loading...</div>
     </div>
 
     <script>
+        let isLoggedIn = false; // Initial login state
+
+        // Show either the login or the monitor section
+        function updateView() {
+            if (isLoggedIn) {
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("monitor-section").style.display = "block";
+                loadStats(); // Load stats after login
+            } else {
+                document.getElementById("login-section").style.display = "block";
+                document.getElementById("monitor-section").style.display = "none";
+            }
+        }
+
+        // Authenticate user
         async function authenticate() {
             const username = document.getElementById("username").value;
             const password = document.getElementById("password").value;
@@ -63,17 +67,22 @@
 
             const data = await response.json();
             if (data.status === "success") {
-                document.getElementById("login-modal").style.display = "none";
-                document.getElementById("stats-container").style.display = "block";
-                loadStats();
+                isLoggedIn = true; // Mark user as logged in
+                updateView(); // Update view to monitor section
             } else {
                 document.getElementById("error-message").innerText = "Invalid credentials!";
             }
         }
 
+        // Load system stats
         async function loadStats() {
-            // Load and display system stats here.
+            const response = await fetch("/ws");
+            const data = await response.json();
+            document.getElementById("stats").innerText = JSON.stringify(data, null, 2);
         }
+
+        // Initialize view on page load
+        updateView();
     </script>
 </body>
 </html>
